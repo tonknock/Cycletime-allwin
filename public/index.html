@@ -1,0 +1,627 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>บันทึกไซเคิลไทม์</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+  :root{
+    --bg:#12151a; --panel:#1a1f26; --panel2:#20262e; --line:#2b323c;
+    --text:#e7eaee; --text-dim:#8b93a1; --amber:#f2a93b; --amber-dim:#3a2f1c;
+    --teal:#3fb6a6; --danger:#e0654f; --radius:4px;
+    --sans:'IBM Plex Sans Thai', system-ui, sans-serif;
+    --mono:'IBM Plex Mono', ui-monospace, monospace;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.5;}
+  .wrap{max-width:640px;margin:0 auto;padding:20px 16px 64px;}
+  .plant-header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding-bottom:16px;margin-bottom:20px;border-bottom:2px solid var(--amber);}
+  .plant-header h1{font-size:19px;font-weight:700;margin:0;}
+  .plant-header .tag{font-family:var(--mono);font-size:12px;color:var(--amber);border:1px solid var(--amber);border-radius:2px;padding:2px 6px;white-space:nowrap;}
+  .notice{font-size:13px;color:var(--text-dim);background:var(--panel);border-left:3px solid var(--teal);padding:10px 12px;border-radius:0 var(--radius) var(--radius) 0;margin-bottom:24px;}
+  .section-title{font-size:13px;font-weight:600;color:var(--text-dim);margin:0 0 12px;}
+  
+  /* เพิ่ม Style สำหรับแถบหัวข้อรายการที่บันทึก */
+  .log-header-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+  .log-header-bar .section-title{margin:0;}
+  .btn-toggle-log{font-size:12px;color:var(--teal);background:transparent;border:none;padding:0;cursor:pointer;font-weight:600;}
+
+  .fold-head{display:flex;justify-content:space-between;align-items:center;cursor:pointer;margin-bottom:12px;}
+  .fold-head .section-title{margin:0;}
+  .fold-toggle{font-size:12px;color:var(--teal);font-weight:600;padding-left:10px;}
+  .fold-body{display:none;}
+  .fold-body.open{display:block;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:20px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:13px;color:var(--text-dim);margin-bottom:6px;}
+  .field input[type=text], .field input[type=number], .field textarea, .field select{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:var(--radius);padding:11px 12px;font-size:16px;font-family:var(--sans);}
+  .tabs{display:flex;gap:8px;margin-bottom:20px;}
+  .tab-btn{flex:1;background:var(--panel);color:var(--text-dim);border:1px solid var(--line);padding:11px;border-radius:var(--radius);font-size:14px;}
+  .tab-btn.active{background:var(--amber-dim);color:var(--amber);border-color:var(--amber);}
+  .mode-panel{display:none;}
+  .mode-panel.active{display:block;}
+  .pattern-badge{display:inline-block;font-family:var(--mono);font-size:12px;color:var(--teal);background:var(--panel2);border-radius:2px;padding:2px 8px;margin-top:6px;}
+  .breakdown{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;}
+  .breakdown .bd-item{flex:1 1 45%;min-width:120px;background:var(--panel2);border-radius:var(--radius);padding:8px 10px;text-align:center;}
+  .breakdown .bd-item .bn{font-family:var(--mono);font-size:16px;font-weight:600;color:var(--amber);}
+  .breakdown .bd-item .bl{font-size:11px;color:var(--text-dim);margin-top:2px;}
+  .field textarea{font-family:var(--mono);font-size:14px;min-height:130px;resize:vertical;line-height:1.4;}
+  .field input:focus, .field textarea:focus, .field select:focus{outline:none;border-color:var(--amber);}
+  .row2{display:flex;gap:10px;}
+  .row2 .field{flex:1;min-width:0;}
+  .hint{font-size:12px;color:var(--text-dim);margin-top:6px;}
+  button{font-family:var(--sans);font-size:15px;font-weight:600;border-radius:var(--radius);border:none;padding:12px 18px;cursor:pointer;}
+  .btn-primary{background:var(--amber);color:#241a06;width:100%;}
+  .btn-save{background:var(--teal);color:#08201c;width:100%;margin-top:14px;}
+  .btn-save:disabled, .btn-primary:disabled{opacity:.5;cursor:default;}
+  .btn-danger-text{background:transparent;color:var(--danger);border:none;font-size:12px;font-weight:500;padding:4px 0;}
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:13px;}
+  th{text-align:right;color:var(--text-dim);font-weight:500;font-size:11px;padding:6px;border-bottom:1px solid var(--line);}
+  th:first-child, td:first-child{text-align:left;}
+  td{padding:6px;text-align:right;border-bottom:1px solid var(--line);}
+  tr.outlier td{background:var(--amber-dim);}
+  td.chk{text-align:center;}
+  .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:16px;}
+  .stat{border-left:3px solid var(--amber);padding:8px 10px;background:var(--panel2);border-radius:0 var(--radius) var(--radius) 0;}
+  .stat .num{font-family:var(--mono);font-size:18px;font-weight:600;}
+  .stat .lbl{font-size:11px;color:var(--text-dim);margin-top:2px;}
+  .log-item{border:1px solid var(--line);border-radius:var(--radius);margin-bottom:10px;overflow:hidden;}
+  .log-head{padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+  .log-head:hover{background:var(--panel2);}
+  .log-main .title{font-weight:600;font-size:14px;}
+  .log-main .sub{font-size:12px;color:var(--text-dim);margin-top:2px;}
+  .log-avg{font-family:var(--mono);text-align:right;flex-shrink:0;}
+  .log-avg .v{font-size:16px;font-weight:600;color:var(--amber);}
+  .log-avg .u{font-size:10px;color:var(--text-dim);}
+  .log-body{padding:0 14px 14px;border-top:1px solid var(--line);display:none;}
+  .log-body.open{display:block;}
+  .log-body .stats{grid-template-columns:repeat(3,1fr);margin-top:12px;margin-bottom:12px;}
+  .empty{color:var(--text-dim);font-size:14px;padding:20px 0;text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="plant-header">
+    <h1>บันทึกไซเคิลไทม์</h1>
+    <span class="tag">CYCLETIME LOG</span>
+  </div>
+  <div class="notice">เชื่อมกับฐานข้อมูล MySQL ของเราเอง ทุกคนที่เข้าเว็บนี้กรอกและเห็นข้อมูลทั้งหมดร่วมกันได้</div>
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tab-stamping" data-mode="stamping">สแตมป์ปิ้ง</button>
+    <button class="tab-btn" id="tab-pipe" data-mode="pipe">ตัดท่อ</button>
+  </div>
+
+  <div class="mode-panel active" id="mode-stamping">
+  <div class="card">
+    <div class="section-title">กรอกข้อมูล</div>
+    <div class="row2">
+      <div class="field"><label>P/N</label><input type="text" id="in-pn" placeholder="เช่น 12105CEJ"></div>
+      <div class="field"><label>OP</label><input type="text" id="in-op" placeholder="เช่น OP20"></div>
+    </div>
+    <div class="field"><label>Process</label><input type="text" id="in-process" placeholder="เช่น พ่นสี, ประกอบ, ตรวจสอบ"></div>
+    <div class="field">
+      <label>วางเวลาจากตัวจับเวลา (แต่ละแถวคือ 1 รอบ)</label>
+      <textarea id="in-raw" placeholder="1   00:27.50   00:27.50
+2   00:21.89   00:49.39"></textarea>
+      <div class="hint">วางได้ทั้งแบบมีลำดับ/ไม่มีลำดับ ระบบจะอ่านคอลัมน์เวลาให้เอง</div>
+    </div>
+    <div class="field"><label>ชั่วโมงต่อกะ</label><input type="number" id="in-shift" value="7.5" step="0.5" style="max-width:120px;"></div>
+    <button class="btn-primary" id="btn-parse">ประมวลผลเวลา</button>
+
+    <div id="preview" style="display:none;margin-top:18px;">
+      <div class="fold-head" id="preview-head">
+        <span class="section-title">ตรวจสอบข้อมูล (ติ๊กออกเพื่อไม่นับค่านั้น)</span>
+        <span class="fold-toggle" id="preview-toggle">ซ่อน</span>
+      </div>
+      <div class="fold-body" id="preview-fold-body">
+        <table><thead><tr><th>#</th><th>คาบเวลา (วิ)</th><th>สะสม</th><th class="chk">ตัดออก</th></tr></thead>
+          <tbody id="preview-body"></tbody>
+        </table>
+      </div>
+      <div class="stats" id="preview-stats"></div>
+      <button class="btn-save" id="btn-save">บันทึกข้อมูลนี้</button>
+    </div>
+  </div>
+  </div>
+
+  <div class="mode-panel" id="mode-pipe">
+  <div class="card">
+    <div class="section-title">กรอกข้อมูลตัดท่อ</div>
+    <div class="field"><label>ไซส์ท่อ</label>
+      <select id="pipe-size">
+        <option value="31.8x1.2x6000">ท่อ 31.8 T1.2 (ยาว 6M)</option>
+        <option value="25.4x1.2x6000">ท่อ 25.4 T1.2 (ยาว 6M)</option>
+        <option value="20.65x1.2x6000">ท่อ 20.65 T1.2 (ยาว 6M)</option>
+        <option value="12.7x1.2x5400">ท่อ 12.7 T1.2 (ยาว 5.4M)</option>
+        <option value="31.8x1.5x6000">ท่อ 31.8 T1.5 (ยาว 6M)</option>
+      </select>
+    </div>
+    <div class="field"><label>Pattern การตัด</label>
+      <select id="pipe-pattern">
+        <option value="single">P/N เดียว</option>
+        <option value="custom">กำหนดเอง (หลาย P/N)</option>
+      </select>
+    </div>
+
+    <div id="pipe-single-fields">
+      <div class="row2">
+        <div class="field"><label>P/N</label><input type="text" id="pipe-pn-1" placeholder="เช่น 12105CEJ"></div>
+        <div class="field"><label>จำนวนชิ้น/เส้น</label><input type="number" id="pipe-qty-1" value="0" min="0"></div>
+      </div>
+    </div>
+    <div id="pipe-custom-fields" style="display:none;">
+      <div class="field"><label>ชื่อ Pattern</label><input type="text" id="pipe-pattern-name" placeholder="เช่น Pattern A"></div>
+      <div id="pipe-custom-rows"></div>
+      <button type="button" class="btn-danger-text" id="pipe-add-pn" style="color:var(--teal);margin-bottom:4px;">+ เพิ่ม P/N</button>
+    </div>
+
+    <div class="field">
+      <label>วางเวลาจากตัวจับเวลา (แต่ละแถวคือ 1 รอบตัด 1 เส้น)</label>
+      <textarea id="pipe-raw" placeholder="1   02:47.96   02:47.96
+2   02:51.30   05:39.26"></textarea>
+      <div class="hint">ดึงเฉพาะคอลัมน์กลาง (คาบเวลา/Duration)</div>
+    </div>
+    <div class="field"><label>ชั่วโมงต่อกะ</label><input type="number" id="pipe-shift" value="7.5" step="0.5" style="max-width:120px;"></div>
+    <button class="btn-primary" id="pipe-btn-parse">ประมวลผลเวลา</button>
+
+    <div id="pipe-preview" style="display:none;margin-top:18px;">
+      <div class="fold-head" id="pipe-preview-head">
+        <span class="section-title">ตรวจสอบข้อมูล (ติ๊กออกเพื่อไม่นับค่านั้น)</span>
+        <span class="fold-toggle" id="pipe-preview-toggle">ซ่อน</span>
+      </div>
+      <div class="fold-body" id="pipe-preview-fold-body">
+        <table><thead><tr><th>#</th><th>คาบเวลา/เส้น (วิ)</th><th>สะสม</th><th class="chk">ตัดออก</th></tr></thead>
+          <tbody id="pipe-preview-body"></tbody>
+        </table>
+      </div>
+      <div class="section-title" style="margin-top:16px;">สรุปผล</div>
+      <div class="breakdown" id="pipe-preview-breakdown"></div>
+      <div class="stats" id="pipe-preview-stats"></div>
+      <button class="btn-save" id="pipe-btn-save">บันทึกข้อมูลนี้</button>
+    </div>
+  </div>
+  </div>
+
+  <!-- ปรับส่วนหัวของรายการที่บันทึกไว้ เพิ่มปุ่มซ่อน/แสดง -->
+  <div class="log-header-bar">
+    <div class="section-title" style="margin:0;">รายการที่บันทึกไว้ (<span id="log-count">0</span>)</div>
+    <button class="btn-toggle-log" id="btn-toggle-log">👁️ ซ่อนประวัติ</button>
+  </div>
+  <div id="log-list"><div class="empty">กำลังโหลด...</div></div>
+</div>
+
+<script>
+(function(){
+  const $ = (id) => document.getElementById(id);
+  let currentRows = [];
+  let entries = [];
+
+  // ---------- Tab switching ----------
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const mode = btn.getAttribute('data-mode');
+      $('mode-stamping').classList.toggle('active', mode === 'stamping');
+      $('mode-pipe').classList.toggle('active', mode === 'pipe');
+    });
+  });
+
+  // ---------- Pipe cutting: masters ----------
+  const PIPE_SIZES = {
+    '31.8x1.2x6000':  { label: 'ท่อ 31.8 T1.2 (ยาว 6M)' },
+    '25.4x1.2x6000':  { label: 'ท่อ 25.4 T1.2 (ยาว 6M)' },
+    '20.65x1.2x6000': { label: 'ท่อ 20.65 T1.2 (ยาว 6M)' },
+    '12.7x1.2x5400':  { label: 'ท่อ 12.7 T1.2 (ยาว 5.4M)' },
+    '31.8x1.5x6000':  { label: 'ท่อ 31.8 T1.5 (ยาว 6M)' },
+  };
+  // ---------- Pipe cutting: custom P/N rows (ไม่จำกัดจำนวน) ----------
+  let pipeCustomItems = [ { name:'', qty:0 }, { name:'', qty:0 } ];
+
+  function renderPipeCustomRows(){
+    const wrap = $('pipe-custom-rows');
+    wrap.innerHTML = pipeCustomItems.map((it, i) => `
+      <div class="row2" data-row="${i}">
+        <div class="field"><label>P/N #${i+1}</label><input type="text" class="pcn-name" data-i="${i}" placeholder="เช่น C5W" value="${escapeHtml(it.name)}"></div>
+        <div class="field"><label>จำนวน/เส้น</label><input type="number" class="pcn-qty" data-i="${i}" min="0" value="${it.qty || 0}"></div>
+        ${pipeCustomItems.length > 1 ? `<button type="button" class="btn-danger-text pcn-del" data-i="${i}" style="align-self:flex-end;margin-bottom:14px;">ลบ</button>` : ''}
+      </div>`).join('');
+    wrap.querySelectorAll('.pcn-name').forEach(inp => {
+      inp.addEventListener('input', (e) => {
+        pipeCustomItems[parseInt(e.target.getAttribute('data-i'),10)].name = e.target.value;
+      });
+    });
+    wrap.querySelectorAll('.pcn-qty').forEach(inp => {
+      inp.addEventListener('input', (e) => {
+        pipeCustomItems[parseInt(e.target.getAttribute('data-i'),10)].qty = parseInt(e.target.value,10) || 0;
+      });
+    });
+    wrap.querySelectorAll('.pcn-del').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const i = parseInt(btn.getAttribute('data-i'),10);
+        pipeCustomItems.splice(i,1);
+        renderPipeCustomRows();
+      });
+    });
+  }
+
+  $('pipe-add-pn').addEventListener('click', () => {
+    pipeCustomItems.push({ name:'', qty:0 });
+    renderPipeCustomRows();
+  });
+
+  $('pipe-pattern').addEventListener('change', (e) => {
+    const isCustom = e.target.value === 'custom';
+    $('pipe-single-fields').style.display = isCustom ? 'none' : 'block';
+    $('pipe-custom-fields').style.display = isCustom ? 'block' : 'none';
+    if(isCustom) renderPipeCustomRows();
+  });
+
+  function getActivePipePattern(){
+    const sel = $('pipe-pattern').value;
+    if(sel === 'custom'){
+      const items = pipeCustomItems.map(it => ({ name: (it.name || '').trim(), qty: it.qty || 0 }));
+      return { type: 'custom', name: $('pipe-pattern-name').value.trim(), items };
+    }
+    const items = [
+      { name: $('pipe-pn-1').value.trim(), qty: parseInt($('pipe-qty-1').value, 10) || 0 },
+    ];
+    return { type: 'single', items };
+  }
+
+  function parseTimeToken(tok){
+    if(tok.indexOf(':') !== -1){
+      const parts = tok.split(':');
+      return parseInt(parts[0],10) * 60 + parseFloat(parts[1]);
+    }
+    return parseFloat(tok);
+  }
+
+  function parseRawText(text){
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const rows = []; let auto = 1;
+    for(const line of lines){
+      const tokens = line.match(/\d{1,2}:\d{2}\.\d{1,3}|\d{1,3}\.\d{1,3}/g);
+      if(!tokens || tokens.length === 0) continue;
+      const idxMatch = line.match(/^\s*(\d+)\b/);
+      const idx = idxMatch ? parseInt(idxMatch[1],10) : auto;
+      let split, cumulative;
+      if(tokens.length >= 2){
+        split = parseTimeToken(tokens[tokens.length - 2]);
+        cumulative = parseTimeToken(tokens[tokens.length - 1]);
+      } else {
+        split = parseTimeToken(tokens[0]); cumulative = null;
+      }
+      rows.push({ idx, split, cumulative, excluded: false });
+      auto++;
+    }
+    return rows;
+  }
+
+  function fmtSec(sec){
+    if(sec === null || sec === undefined || isNaN(sec)) return '-';
+    const m = Math.floor(sec / 60);
+    const s = (sec % 60).toFixed(2).padStart(5,'0');
+    return String(m).padStart(2,'0') + ':' + s;
+  }
+
+  function median(arr){
+    if(arr.length === 0) return 0;
+    const s = [...arr].sort((a,b)=>a-b);
+    const mid = Math.floor(s.length/2);
+    return s.length % 2 ? s[mid] : (s[mid-1]+s[mid])/2;
+  }
+
+  function computeStats(rows, shiftHours){
+    const included = rows.filter(r => !r.excluded);
+    const sum = included.reduce((a,r) => a + r.split, 0);
+    const count = included.length;
+    const avg = count ? sum / count : 0;
+    return { sum, avg, count, total: rows.length,
+      perHour: avg > 0 ? 3600 / avg : 0,
+      perShift: avg > 0 ? (shiftHours * 3600) / avg : 0 };
+  }
+
+  function renderStatsBlock(container, stats){
+    container.innerHTML = `
+      <div class="stat"><div class="num">${stats.avg.toFixed(2)}</div><div class="lbl">เฉลี่ย วินาที/ชิ้น (${stats.count}/${stats.total} ค่า)</div></div>
+      <div class="stat"><div class="num">${stats.sum.toFixed(2)}</div><div class="lbl">ผลรวม (วินาที)</div></div>
+      <div class="stat"><div class="num">${Math.round(stats.perHour)}</div><div class="lbl">ชิ้น / ชั่วโมง</div></div>
+      <div class="stat"><div class="num">${Math.round(stats.perShift)}</div><div class="lbl">ชิ้น / กะ</div></div>`;
+  }
+
+  function renderPreview(){
+    const body = $('preview-body');
+    const med = median(currentRows.map(r => r.split));
+    body.innerHTML = currentRows.map((r, i) => `
+      <tr class="${r.split > med * 1.5 ? 'outlier' : ''}">
+        <td>${r.idx}</td><td>${r.split.toFixed(2)}</td><td>${fmtSec(r.cumulative)}</td>
+        <td class="chk"><input type="checkbox" data-i="${i}" ${r.excluded ? 'checked' : ''}></td>
+      </tr>`).join('');
+    body.querySelectorAll('input[type=checkbox]').forEach(cb => {
+      cb.addEventListener('change', (e) => {
+        const i = parseInt(e.target.getAttribute('data-i'), 10);
+        currentRows[i].excluded = e.target.checked;
+        renderStatsBlock($('preview-stats'), computeStats(currentRows, parseFloat($('in-shift').value) || 7.5));
+      });
+    });
+    renderStatsBlock($('preview-stats'), computeStats(currentRows, parseFloat($('in-shift').value) || 7.5));
+    $('preview').style.display = 'block';
+    $('preview-fold-body').classList.remove('open');
+    $('preview-toggle').textContent = 'แสดง';
+  }
+
+  $('preview-head').addEventListener('click', () => {
+    const body = $('preview-fold-body');
+    const open = body.classList.toggle('open');
+    $('preview-toggle').textContent = open ? 'ซ่อน' : 'แสดง';
+  });
+
+  /* เพิ่ม Event Listener สำหรับปุ่ม ซ่อน/แสดง รายการประวัติ */
+  $('btn-toggle-log').addEventListener('click', () => {
+    const list = $('log-list');
+    const btn = $('btn-toggle-log');
+    if (list.style.display === 'none') {
+      list.style.display = 'block';
+      btn.textContent = '👁️ ซ่อนประวัติ';
+    } else {
+      list.style.display = 'none';
+      btn.textContent = '👁️ แสดงประวัติ';
+    }
+  });
+
+  $('btn-parse').addEventListener('click', () => {
+    const rows = parseRawText($('in-raw').value);
+    if(rows.length === 0){ alert('อ่านเวลาจากข้อความที่วางไม่ได้ ลองตรวจสอบรูปแบบอีกครั้ง'); return; }
+    currentRows = rows;
+    renderPreview();
+  });
+
+  // ---------- Pipe cutting: parse / stats / preview ----------
+  let pipeCurrentRows = [];
+
+  function computePipeStats(rows, pattern, shiftHours){
+    const included = rows.filter(r => !r.excluded);
+    const sum = included.reduce((a,r) => a + r.split, 0);
+    const count = included.length;
+    const avgPipeCT = count ? sum / count : 0;
+    const totalPieces = pattern.items.reduce((a, it) => a + (it.qty || 0), 0);
+    const ctPerPiece = totalPieces > 0 ? avgPipeCT / totalPieces : 0;
+    const pipesPerShift = avgPipeCT > 0 && shiftHours ? (shiftHours * 3600) / avgPipeCT : 0;
+    const piecesPerShift = pipesPerShift * totalPieces;
+    return { sum, avgPipeCT, count, total: rows.length, totalPieces, ctPerPiece,
+      pipesPerShift, piecesPerShift };
+  }
+
+  // สรุปแค่ Cycle Time ต่อชิ้น และจำนวนชิ้น/เส้น แยกตาม P/N (ถ้ามีมากกว่า 1)
+  function renderPipeBreakdown(container, pattern, stats){
+    container.innerHTML = pattern.items.map(it => `
+      <div class="bd-item"><div class="bn">${stats.ctPerPiece.toFixed(2)}</div><div class="bl">${escapeHtml(it.name) || '(ไม่ระบุ P/N)'} · วิ/ชิ้น</div></div>
+      <div class="bd-item"><div class="bn">${it.qty || 0}</div><div class="bl">${escapeHtml(it.name) || '(ไม่ระบุ P/N)'} · ชิ้น/เส้น</div></div>`).join('');
+  }
+
+  function renderPipeShiftStats(container, stats, shiftHours){
+    container.innerHTML = `
+      <div class="stat"><div class="num">${stats.avgPipeCT.toFixed(2)}</div><div class="lbl">เฉลี่ย วินาที/เส้น (${stats.count}/${stats.total} เส้น)</div></div>
+      <div class="stat"><div class="num">${Math.round(stats.pipesPerShift)}</div><div class="lbl">เส้น / กะ (${shiftHours} ชม.)</div></div>
+      <div class="stat"><div class="num">${Math.round(stats.piecesPerShift)}</div><div class="lbl">ชิ้นรวม / กะ</div></div>`;
+  }
+
+  function renderPipePreview(){
+    const body = $('pipe-preview-body');
+    const med = median(pipeCurrentRows.map(r => r.split));
+    body.innerHTML = pipeCurrentRows.map((r, i) => `
+      <tr class="${r.split < med * 0.5 ? 'outlier' : ''}">
+        <td>${r.idx}</td><td>${r.split.toFixed(2)}</td><td>${fmtSec(r.cumulative)}</td>
+        <td class="chk"><input type="checkbox" data-i="${i}" ${r.excluded ? 'checked' : ''}></td>
+      </tr>`).join('');
+    body.querySelectorAll('input[type=checkbox]').forEach(cb => {
+      cb.addEventListener('change', (e) => {
+        const i = parseInt(e.target.getAttribute('data-i'), 10);
+        pipeCurrentRows[i].excluded = e.target.checked;
+        const pattern = getActivePipePattern();
+        const shiftHours = parseFloat($('pipe-shift').value) || 7.5;
+        const stats = computePipeStats(pipeCurrentRows, pattern, shiftHours);
+        renderPipeBreakdown($('pipe-preview-breakdown'), pattern, stats);
+        renderPipeShiftStats($('pipe-preview-stats'), stats, shiftHours);
+      });
+    });
+    const pattern = getActivePipePattern();
+    const shiftHours = parseFloat($('pipe-shift').value) || 7.5;
+    const stats = computePipeStats(pipeCurrentRows, pattern, shiftHours);
+    renderPipeBreakdown($('pipe-preview-breakdown'), pattern, stats);
+    renderPipeShiftStats($('pipe-preview-stats'), stats, shiftHours);
+    $('pipe-preview').style.display = 'block';
+    $('pipe-preview-fold-body').classList.remove('open');
+    $('pipe-preview-toggle').textContent = 'แสดง';
+  }
+
+  $('pipe-preview-head').addEventListener('click', () => {
+    const body = $('pipe-preview-fold-body');
+    const open = body.classList.toggle('open');
+    $('pipe-preview-toggle').textContent = open ? 'ซ่อน' : 'แสดง';
+  });
+
+  $('pipe-btn-parse').addEventListener('click', () => {
+    const rows = parseRawText($('pipe-raw').value);
+    if(rows.length === 0){ alert('อ่านเวลาจากข้อความที่วางไม่ได้ ลองตรวจสอบรูปแบบอีกครั้ง'); return; }
+    pipeCurrentRows = rows;
+    renderPipePreview();
+  });
+
+  function escapeHtml(s){
+    if(!s) return '';
+    return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  async function loadEntries(){
+    try{
+      const res = await fetch('/api/entries');
+      if(!res.ok) throw new Error('bad status');
+      entries = await res.json();
+    }catch(e){
+      $('log-list').innerHTML = '<div class="empty">โหลดรายการไม่สำเร็จ ลองรีเฟรชหน้านี้</div>';
+      return;
+    }
+    renderLog();
+  }
+
+  function renderLog(){
+    $('log-count').textContent = entries.length;
+    const list = $('log-list');
+    if(entries.length === 0){ list.innerHTML = '<div class="empty">ยังไม่มีข้อมูลที่บันทึก</div>'; return; }
+    list.innerHTML = entries.map(e => {
+      const d = new Date(Number(e.createdAt));
+      const dateStr = d.toLocaleString('th-TH', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' });
+      const med = median(e.rows.map(r => r.split));
+
+      if(e.type === 'pipe'){
+        const rowsHtml = e.rows.map(r => `
+          <tr class="${r.excluded ? '' : (r.split < med * 0.5 ? 'outlier' : '')}">
+            <td>${r.idx}</td><td>${r.split.toFixed(2)}</td><td>${fmtSec(r.cumulative)}</td>
+            <td class="chk">${r.excluded ? '✕' : ''}</td>
+          </tr>`).join('');
+        const items = (e.pattern && e.pattern.items) || [];
+        const breakdownHtml = items.map(it => `
+          <div class="bd-item"><div class="bn">${e.stats.ctPerPiece.toFixed(2)}</div><div class="bl">${escapeHtml(it.name) || '(ไม่ระบุ P/N)'} · วิ/ชิ้น</div></div>
+          <div class="bd-item"><div class="bn">${it.qty || 0}</div><div class="bl">${escapeHtml(it.name) || '(ไม่ระบุ P/N)'} · ชิ้น/เส้น</div></div>`).join('');
+        const hasShift = e.shiftHours && e.stats.pipesPerShift !== undefined;
+        const shiftStatsHtml = hasShift ? `
+              <div class="section-title" style="margin-top:12px;">ต่อกะ (${e.shiftHours} ชม.)</div>
+              <div class="stats">
+                <div class="stat"><div class="num">${e.stats.avgPipeCT.toFixed(2)}</div><div class="lbl">วินาที/เส้น</div></div>
+                <div class="stat"><div class="num">${Math.round(e.stats.pipesPerShift)}</div><div class="lbl">เส้น/กะ</div></div>
+                <div class="stat"><div class="num">${Math.round(e.stats.piecesPerShift)}</div><div class="lbl">ชิ้นรวม/กะ</div></div>
+              </div>` : '';
+        return `
+          <div class="log-item">
+            <div class="log-head">
+              <div class="log-main">
+                <div class="title">${escapeHtml(e.pn) || '(ไม่ระบุ P/N)'} · ${escapeHtml(e.process) || '-'}</div>
+                <div class="sub">${dateStr} · ${e.stats.count}/${e.stats.total} เส้น</div>
+                ${e.pattern && e.pattern.name ? `<div class="pattern-badge">${escapeHtml(e.pattern.name)}</div>` : ''}
+              </div>
+              <div class="log-avg"><div class="v">${e.stats.ctPerPiece.toFixed(2)}</div><div class="u">วิ/ชิ้น</div></div>
+            </div>
+            <div class="log-body">
+              <table><thead><tr><th>#</th><th>คาบเวลา/เส้น</th><th>สะสม</th><th class="chk">ตัดออก</th></tr></thead>
+                <tbody>${rowsHtml}</tbody></table>
+              <div class="section-title" style="margin-top:12px;">สรุปผล</div>
+              <div class="breakdown">${breakdownHtml}</div>
+              ${shiftStatsHtml}
+              <button class="btn-danger-text" data-del="${e.id}">ลบรายการนี้</button>
+            </div>
+          </div>`;
+      }
+
+      const rowsHtml = e.rows.map(r => `
+        <tr class="${r.excluded ? '' : (r.split > med * 1.5 ? 'outlier' : '')}">
+          <td>${r.idx}</td><td>${r.split.toFixed(2)}</td><td>${fmtSec(r.cumulative)}</td>
+          <td class="chk">${r.excluded ? '✕' : ''}</td>
+        </tr>`).join('');
+      return `
+        <div class="log-item">
+          <div class="log-head">
+            <div class="log-main">
+              <div class="title">${escapeHtml(e.pn) || '(ไม่ระบุ P/N)'} · ${escapeHtml(e.op) || '-'} · ${escapeHtml(e.process) || '-'}</div>
+              <div class="sub">${dateStr} · ${e.stats.count}/${e.stats.total} ค่า</div>
+            </div>
+            <div class="log-avg"><div class="v">${e.stats.avg.toFixed(2)}</div><div class="u">วิ/ชิ้น</div></div>
+          </div>
+          <div class="log-body">
+            <table><thead><tr><th>#</th><th>คาบเวลา</th><th>สะสม</th><th class="chk">ตัดออก</th></tr></thead>
+              <tbody>${rowsHtml}</tbody></table>
+            <div class="stats">
+              <div class="stat"><div class="num">${e.stats.sum.toFixed(2)}</div><div class="lbl">ผลรวม (วินาที)</div></div>
+              <div class="stat"><div class="num">${Math.round(e.stats.perHour)}</div><div class="lbl">ชิ้น/ชม.</div></div>
+              <div class="stat"><div class="num">${Math.round(e.stats.perShift)}</div><div class="lbl">ชิ้น/กะ (${e.shiftHours} ชม.)</div></div>
+            </div>
+            <button class="btn-danger-text" data-del="${e.id}">ลบรายการนี้</button>
+          </div>
+        </div>`;
+    }).join('');
+
+    list.querySelectorAll('.log-head').forEach(h => {
+      h.addEventListener('click', () => h.nextElementSibling.classList.toggle('open'));
+    });
+    list.querySelectorAll('[data-del]').forEach(btn => {
+      btn.addEventListener('click', async (ev) => {
+        ev.stopPropagation();
+        const id = btn.getAttribute('data-del');
+        if(!confirm('ลบรายการนี้ใช่ไหม')) return;
+        try{
+          const res = await fetch('/api/entries/' + id, { method: 'DELETE' });
+          if(!res.ok) throw new Error('bad status');
+          await loadEntries();
+        }catch(e){ alert('ลบไม่สำเร็จ ลองใหม่อีกครั้ง'); }
+      });
+    });
+  }
+
+  $('btn-save').addEventListener('click', async () => {
+    const shiftHours = parseFloat($('in-shift').value) || 7.5;
+    const stats = computeStats(currentRows, shiftHours);
+    if(stats.count === 0){ alert('ไม่มีค่าที่จะบันทึก (ค่าทั้งหมดถูกตัดออก)'); return; }
+    const btn = $('btn-save');
+    btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+    try{
+      const res = await fetch('/api/entries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pn: $('in-pn').value.trim(),
+          op: $('in-op').value.trim(),
+          process: $('in-process').value.trim(),
+          shiftHours, rows: currentRows, stats
+        })
+      });
+      if(!res.ok) throw new Error('bad status');
+      $('in-raw').value = ''; $('preview').style.display = 'none'; currentRows = [];
+      await loadEntries();
+    }catch(e){
+      alert('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง');
+    }
+    btn.disabled = false; btn.textContent = 'บันทึกข้อมูลนี้';
+  });
+
+  $('pipe-btn-save').addEventListener('click', async () => {
+    const pattern = getActivePipePattern();
+    const shiftHours = parseFloat($('pipe-shift').value) || 7.5;
+    const stats = computePipeStats(pipeCurrentRows, pattern, shiftHours);
+    if(stats.count === 0){ alert('ไม่มีเส้นที่จะบันทึก (ทุกค่าถูกตัดออก)'); return; }
+    if(stats.totalPieces === 0){ alert('กรุณาระบุจำนวนชิ้น/เส้นของ P/N'); return; }
+    const pnLabel = pattern.items.map(it => it.name || '(ไม่ระบุ P/N)').join(' + ');
+    const btn = $('pipe-btn-save');
+    btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+    try{
+      const res = await fetch('/api/entries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'pipe',
+          pn: pnLabel,
+          op: 'ตัดท่อ',
+          process: PIPE_SIZES[$('pipe-size').value].label,
+          pipeSize: $('pipe-size').value,
+          pattern,
+          shiftHours,
+          rows: pipeCurrentRows,
+          stats
+        })
+      });
+      if(!res.ok) throw new Error('bad status');
+      $('pipe-raw').value = ''; $('pipe-preview').style.display = 'none'; pipeCurrentRows = [];
+      await loadEntries();
+    }catch(e){
+      alert('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง');
+    }
+    btn.disabled = false; btn.textContent = 'บันทึกข้อมูลนี้';
+  });
+
+  loadEntries();
+})();
+</script>
+</body>
+</html>

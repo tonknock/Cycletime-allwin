@@ -1,0 +1,16 @@
+{
+  "name": "cycletime-app",
+  "version": "1.0.0",
+  "description": "Cycle time data entry app backed by SQLite (no database server needed)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.3",
+    "knex": "^3.3.0",
+    "mysql2": "^3.24.4"
+  }
+}
