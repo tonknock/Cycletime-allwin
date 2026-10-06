@@ -78,6 +78,18 @@
   .log-body.open{display:block;}
   .log-body .stats{grid-template-columns:repeat(3,1fr);margin-top:12px;margin-bottom:12px;}
   .empty{color:var(--text-dim);font-size:14px;padding:20px 0;text-align:center;}
+  .log-search{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:var(--radius);padding:10px 12px;font-size:16px;font-family:var(--sans);margin-bottom:12px;}
+  .log-search:focus{outline:none;border-color:var(--amber);}
+  .log-group{border:1px solid var(--line);border-radius:var(--radius);margin-bottom:10px;background:var(--panel);}
+  .group-head{padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+  .group-head:hover{background:var(--panel2);}
+  .group-head .title{font-weight:600;font-size:15px;word-break:break-word;}
+  .op-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;}
+  .op-chip{font-family:var(--mono);font-size:11px;color:var(--teal);background:var(--panel2);border-radius:2px;padding:2px 6px;}
+  .group-count{font-size:11px;color:var(--text-dim);text-align:right;flex-shrink:0;line-height:1.5;}
+  .group-count b{color:var(--text);font-size:14px;}
+  .group-body{padding:0 10px 2px;display:none;}
+  .group-body.open{display:block;}
 </style>
 </head>
 <body>
@@ -190,6 +202,7 @@
     <div class="section-title" style="margin:0;">รายการที่บันทึกไว้ (<span id="log-count">0</span>)</div>
     <button class="btn-toggle-log" id="btn-toggle-log">👁️ ซ่อนประวัติ</button>
   </div>
+  <input type="text" class="log-search" id="log-search" placeholder="🔍 ค้นหา P/N">
   <div id="log-list"><div class="empty">กำลังโหลด...</div></div>
 </div>
 
@@ -366,12 +379,16 @@
     const btn = $('btn-toggle-log');
     if (list.style.display === 'none') {
       list.style.display = 'block';
+      $('log-search').style.display = 'block';
       btn.textContent = '👁️ ซ่อนประวัติ';
     } else {
       list.style.display = 'none';
+      $('log-search').style.display = 'none';
       btn.textContent = '👁️ แสดงประวัติ';
     }
   });
+
+  $('log-search').addEventListener('input', () => renderLog());
 
   $('btn-parse').addEventListener('click', () => {
     const rows = parseRawText($('in-raw').value);
@@ -469,11 +486,13 @@
     renderLog();
   }
 
+  const openGroups = new Set();
+
   function renderLog(){
     $('log-count').textContent = entries.length;
     const list = $('log-list');
     if(entries.length === 0){ list.innerHTML = '<div class="empty">ยังไม่มีข้อมูลที่บันทึก</div>'; return; }
-    list.innerHTML = entries.map(e => {
+    const renderItem = e => {
       const d = new Date(Number(e.createdAt));
       const dateStr = d.toLocaleString('th-TH', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' });
       const med = median(e.rows.map(r => r.split));
@@ -542,8 +561,50 @@
             <button class="btn-danger-text" data-del="${e.id}">ลบรายการนี้</button>
           </div>
         </div>`;
+    };
+
+    // ---------- จัดกลุ่มตาม P/N และเรียง OP ----------
+    const q = $('log-search').value.trim().toLowerCase();
+    const opNum = op => { const m = (op || '').match(/OP\s*(\d+)/i); return m ? parseInt(m[1], 10) : Infinity; };
+    const byOp = (a, b) => opNum(a) - opNum(b) || (a || '').localeCompare(b || '');
+    const groups = new Map();
+    for(const e of entries){
+      const pn = (e.pn || '').trim();
+      const key = pn.toLowerCase();
+      if(q && !key.includes(q)) continue;
+      if(!groups.has(key)) groups.set(key, { key, pn, items: [], latest: 0 });
+      const g = groups.get(key);
+      g.items.push(e);
+      g.latest = Math.max(g.latest, Number(e.createdAt));
+    }
+    const sorted = [...groups.values()].sort((a, b) => b.latest - a.latest);
+    if(sorted.length === 0){ list.innerHTML = '<div class="empty">ไม่พบ P/N ที่ค้นหา</div>'; return; }
+
+    list.innerHTML = sorted.map(g => {
+      g.items.sort((a, b) => byOp(a.op, b.op) || Number(b.createdAt) - Number(a.createdAt));
+      const ops = [...new Set(g.items.map(e => (e.op || '').trim()))].sort(byOp);
+      const chips = ops.map(op => `<span class="op-chip">${escapeHtml(op) || '-'}</span>`).join('');
+      const isOpen = q || openGroups.has(g.key);
+      return `
+        <div class="log-group">
+          <div class="group-head" data-group="${escapeHtml(g.key)}">
+            <div class="log-main">
+              <div class="title">${escapeHtml(g.pn) || '(ไม่ระบุ P/N)'}</div>
+              <div class="op-chips">${chips}</div>
+            </div>
+            <div class="group-count"><b>${ops.length}</b> OP<br>${g.items.length} รายการ</div>
+          </div>
+          <div class="group-body${isOpen ? ' open' : ''}">${g.items.map(renderItem).join('')}</div>
+        </div>`;
     }).join('');
 
+    list.querySelectorAll('.group-head').forEach(h => {
+      h.addEventListener('click', () => {
+        const key = h.getAttribute('data-group');
+        const open = h.nextElementSibling.classList.toggle('open');
+        if(open) openGroups.add(key); else openGroups.delete(key);
+      });
+    });
     list.querySelectorAll('.log-head').forEach(h => {
       h.addEventListener('click', () => h.nextElementSibling.classList.toggle('open'));
     });
