@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>เข้าสู่ระบบ · บันทึกไซเคิลไทม์</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+  :root{
+    --bg:#12151a; --panel:#1a1f26; --panel2:#20262e; --line:#2b323c;
+    --text:#e7eaee; --text-dim:#8b93a1; --amber:#f2a93b; --amber-dim:#3a2f1c;
+    --teal:#3fb6a6; --danger:#e0654f; --radius:4px;
+    --sans:'IBM Plex Sans Thai', system-ui, sans-serif;
+    --mono:'IBM Plex Mono', ui-monospace, monospace;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;}
+  .box{width:100%;max-width:360px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:24px 20px;}
+  h1{font-size:19px;margin:0 0 4px;}
+  .tag{font-family:var(--mono);font-size:12px;color:var(--amber);}
+  .head{border-bottom:2px solid var(--amber);padding-bottom:14px;margin-bottom:18px;}
+  label{display:block;font-size:13px;color:var(--text-dim);margin-bottom:6px;}
+  input{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:var(--radius);padding:12px;font-size:16px;font-family:var(--sans);}
+  input:focus{outline:none;border-color:var(--amber);}
+  .pw-wrap{position:relative;}
+  .pw-wrap input{padding-right:52px;}
+  .eye{position:absolute;right:0;top:0;bottom:0;width:48px;margin:0;background:transparent;border:none;color:var(--text-dim);padding:0;display:flex;align-items:center;justify-content:center;border-radius:0 var(--radius) var(--radius) 0;}
+  .eye:hover, .eye:focus-visible, .eye.on{color:var(--text);}
+  .eye:focus-visible{outline:1px solid var(--amber);outline-offset:-1px;}
+  .eye svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;}
+  button{width:100%;margin-top:14px;background:var(--amber);color:#241a06;border:none;border-radius:var(--radius);padding:12px;font-size:15px;font-weight:600;cursor:pointer;}
+  button:disabled{opacity:.5;cursor:default;}
+  .msg{font-size:13px;margin-top:12px;min-height:18px;color:var(--danger);}
+  .note{font-size:12px;color:var(--text-dim);margin-top:16px;line-height:1.6;}
+  .warn{background:var(--amber-dim);color:var(--amber);border-radius:var(--radius);padding:10px 12px;font-size:13px;line-height:1.6;margin-bottom:14px;display:none;}
+</style>
+</head>
+<body>
+<form class="box" id="form">
+  <div class="head">
+    <h1>บันทึกไซเคิลไทม์</h1>
+    <div class="tag">CYCLETIME LOG</div>
+  </div>
+  <div class="warn" id="not-set">ผู้ดูแลยังไม่ได้ตั้งรหัสผ่านเข้าเว็บ<br>ให้ใส่ EDIT_PASSWORD / VIEW_PASSWORD ในไฟล์ .env แล้วรีสตาร์ทเซิร์ฟเวอร์</div>
+  <label for="pw">รหัสผ่าน</label>
+  <div class="pw-wrap">
+    <input type="password" id="pw" autocomplete="current-password" autofocus>
+    <button type="button" class="eye" id="eye" aria-label="แสดงรหัสผ่าน"></button>
+  </div>
+  <button type="submit" id="btn">เข้าสู่ระบบ</button>
+  <div class="msg" id="msg"></div>
+  <div class="note">รหัสผู้บันทึก: บันทึกและลบข้อมูลได้<br>รหัสผู้ดู: ดูประวัติและ export ได้อย่างเดียว</div>
+</form>
+<script>
+  const $ = id => document.getElementById(id);
+  const EYE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>';
+  const EYE_OFF = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/></svg>';
+  $('eye').innerHTML = EYE;
+  $('eye').addEventListener('click', () => {
+    const show = $('pw').type === 'password';
+    $('pw').type = show ? 'text' : 'password';
+    $('eye').innerHTML = show ? EYE_OFF : EYE;
+    $('eye').classList.toggle('on', show);
+    $('eye').setAttribute('aria-label', show ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน');
+    $('pw').focus();
+  });
+  fetch('/api/auth-status').then(r => r.json()).then(s => {
+    if(!s.configured){ $('not-set').style.display = 'block'; $('btn').disabled = true; }
+  }).catch(() => {});
+
+  $('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = $('btn'); btn.disabled = true; $('msg').textContent = '';
+    try{
+      const res = await fetch('/api/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: $('pw').value })
+      });
+      const data = await res.json().catch(() => ({}));
+      if(res.ok){ location.href = '/'; return; }
+      if(res.status === 429) $('msg').textContent = `ใส่รหัสผิดหลายครั้ง รอ ${Math.ceil((data.retryInSec || 300) / 60)} นาทีแล้วลองใหม่`;
+      else if(res.status === 503) $('msg').textContent = 'ผู้ดูแลยังไม่ได้ตั้งรหัสผ่าน';
+      else $('msg').textContent = 'รหัสผ่านไม่ถูกต้อง';
+    }catch(err){
+      $('msg').textContent = 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง';
+    }
+    btn.disabled = false; $('pw').select();
+  });
+</script>
+</body>
+</html>
