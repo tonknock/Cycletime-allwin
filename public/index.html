@@ -138,6 +138,7 @@
         <option value="31.8x1.5x6000">ท่อ 31.8 T1.5 (ยาว 6M)</option>
       </select>
     </div>
+    <div class="field"><label>OP</label><input type="text" id="pipe-op" placeholder="เช่น OP10"></div>
     <div class="field"><label>Pattern การตัด</label>
       <select id="pipe-pattern">
         <option value="single">P/N เดียว</option>
@@ -499,7 +500,7 @@
           <div class="log-item">
             <div class="log-head">
               <div class="log-main">
-                <div class="title">${escapeHtml(e.pn) || '(ไม่ระบุ P/N)'} · ${escapeHtml(e.process) || '-'}</div>
+                <div class="title">${escapeHtml(e.pn) || '(ไม่ระบุ P/N)'} · ${escapeHtml(e.op) || '-'} · ${escapeHtml(e.process) || '-'}</div>
                 <div class="sub">${dateStr} · ${e.stats.count}/${e.stats.total} เส้น</div>
                 ${e.pattern && e.pattern.name ? `<div class="pattern-badge">${escapeHtml(e.pattern.name)}</div>` : ''}
               </div>
@@ -602,7 +603,7 @@
         body: JSON.stringify({
           type: 'pipe',
           pn: pnLabel,
-          op: 'ตัดท่อ',
+          op: $('pipe-op').value.trim() || 'ตัดท่อ',
           process: PIPE_SIZES[$('pipe-size').value].label,
           pipeSize: $('pipe-size').value,
           pattern,
