@@ -163,7 +163,10 @@
         <option value="31.8x1.5x6000">ท่อ 31.8 T1.5 (ยาว 6M)</option>
       </select>
     </div>
-    <div class="field"><label>OP</label><input type="text" id="pipe-op" placeholder="เช่น OP10"></div>
+    <div class="row2">
+      <div class="field"><label>OP</label><input type="text" id="pipe-op" placeholder="เช่น OP10"></div>
+      <div class="field"><label>Process</label><input type="text" id="pipe-process" placeholder="เช่น Laser cutting"></div>
+    </div>
     <div class="field"><label>Pattern การตัด</label>
       <select id="pipe-pattern">
         <option value="single">P/N เดียว</option>
@@ -308,12 +311,12 @@
     const sel = $('pipe-pattern').value;
     if(sel === 'custom'){
       const items = pipeCustomItems.map(it => ({ name: (it.name || '').trim(), qty: it.qty || 0 }));
-      return { type: 'custom', name: $('pipe-pattern-name').value.trim(), items };
+      return { type: 'custom', name: $('pipe-pattern-name').value.trim(), process: $('pipe-process').value.trim(), items };
     }
     const items = [
       { name: $('pipe-pn-1').value.trim(), qty: parseInt($('pipe-qty-1').value, 10) || 0 },
     ];
-    return { type: 'single', items };
+    return { type: 'single', process: $('pipe-process').value.trim(), items };
   }
 
   function parseTimeToken(tok){
@@ -439,6 +442,7 @@
       opNum(a.op) - opNum(b.op) || (a.op || '').localeCompare(b.op || '') ||
       Number(a.createdAt) - Number(b.createdAt));
     const r2 = n => (typeof n === 'number' && isFinite(n)) ? Math.round(n * 100) / 100 : '';
+    const procName = e => e.type === 'pipe' ? ((e.pattern && e.pattern.process) || '') : (e.process || '');
     const dateStr = e => new Date(Number(e.createdAt)).toLocaleString('th-TH', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' });
 
     const summary = sorted.map(e => {
@@ -449,7 +453,8 @@
         'วันที่-เวลา': dateStr(e),
         'P/N': e.pn || '',
         'OP': e.op || '',
-        'Process / ไซส์ท่อ': e.process || '',
+        'Process': procName(e),
+        'ไซส์ท่อ': e.type === 'pipe' ? (e.process || '') : '',
         'ชื่อ Pattern': (e.pattern && e.pattern.name) || '',
         'ประเภท': isPipe ? 'ตัดท่อ' : 'Stamping',
         'ชิ้น/เส้น': isPipe ? (s.totalPieces || '') : '',
@@ -467,7 +472,8 @@
     sorted.forEach(e => (e.rows || []).forEach(r => laps.push({
       'P/N': e.pn || '',
       'OP': e.op || '',
-      'Process / ไซส์ท่อ': e.process || '',
+      'Process': procName(e),
+      'ไซส์ท่อ': e.type === 'pipe' ? (e.process || '') : '',
       'วันที่': dateStr(e),
       'รอบที่': r.idx,
       'เวลา (วิ)': r2(r.split),
@@ -636,7 +642,7 @@
           <div class="log-item">
             <div class="log-head">
               <div class="log-main">
-                <div class="title">${escapeHtml(e.pn) || '(ไม่ระบุ P/N)'} · ${escapeHtml(e.op) || '-'} · ${escapeHtml(e.process) || '-'}</div>
+                <div class="title">${escapeHtml(e.pn) || '(ไม่ระบุ P/N)'} · ${escapeHtml(e.op) || '-'} · ${e.pattern && e.pattern.process ? escapeHtml(e.pattern.process) + ' · ' : ''}${escapeHtml(e.process) || '-'}</div>
                 <div class="sub">${dateStr} · ${e.stats.count}/${e.stats.total} เส้น</div>
                 ${e.pattern && e.pattern.name ? `<div class="pattern-badge">${escapeHtml(e.pattern.name)}</div>` : ''}
               </div>
