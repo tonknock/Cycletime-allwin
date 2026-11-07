@@ -1,3 +1,10 @@
 node_modules/
 .env
 *.exe
+logs/
+exports/
+backups/
+server.log
+*.log
+.claude/
+docs/bom/

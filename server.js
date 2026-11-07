@@ -202,6 +202,76 @@ app.delete('/api/entries/:id', (req, res) => {
   });
 });
 
+// ---------- จำนวน OP ทั้งหมดต่อ P/N ----------
+const pnKey = (pn) => String(pn || '').toLowerCase().replace(/\s+/g, '');
+
+app.get('/api/pn-ops', (req, res) => {
+  db.query('SELECT pn_key, pn, total_ops FROM pn_ops', (err, results) => {
+    if (err) {
+      console.error('Fetch pn_ops error:', err);
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(results.map(r => ({ key: r.pn_key, pn: r.pn, totalOps: r.total_ops })));
+  });
+});
+
+// ตั้งค่า (สิทธิ์ edit เท่านั้น ถูกกันไว้ที่ middleware แล้ว); totalOps = 0 คือลบค่าที่ตั้งไว้
+app.put('/api/pn-ops', (req, res) => {
+  const pn = String((req.body && req.body.pn) || '').trim();
+  const totalOps = parseInt(req.body && req.body.totalOps, 10);
+  const key = pnKey(pn);
+  if (!key || !(totalOps >= 0 && totalOps <= 50)) {
+    return res.status(400).json({ error: 'invalid' });
+  }
+  const done = (err) => {
+    if (err) {
+      console.error('Save pn_ops error:', err);
+      return res.status(500).json({ error: err.message });
+    }
+    res.json({ success: true });
+  };
+  if (totalOps === 0) return db.query('DELETE FROM pn_ops WHERE pn_key = ?', [key], done);
+  db.query(
+    `INSERT INTO pn_ops (pn_key, pn, total_ops, updatedAt) VALUES (?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE pn = VALUES(pn), total_ops = VALUES(total_ops), updatedAt = VALUES(updatedAt)`,
+    [key, pn, totalOps, Date.now()], done);
+});
+
+// ---------- วัสดุต่อ P/N (เช่น Aluminium) ----------
+const MATERIALS = ['aluminium'];
+
+app.get('/api/pn-material', (req, res) => {
+  db.query('SELECT pn_key, pn, material FROM pn_material', (err, results) => {
+    if (err) {
+      console.error('Fetch pn_material error:', err);
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(results.map(r => ({ key: r.pn_key, pn: r.pn, material: r.material })));
+  });
+});
+
+// ตั้งค่า (สิทธิ์ edit เท่านั้น); material ว่าง = ลบค่าที่ตั้งไว้
+app.put('/api/pn-material', (req, res) => {
+  const pn = String((req.body && req.body.pn) || '').trim();
+  const material = String((req.body && req.body.material) || '').trim().toLowerCase();
+  const key = pnKey(pn);
+  if (!key || (material && !MATERIALS.includes(material))) {
+    return res.status(400).json({ error: 'invalid' });
+  }
+  const done = (err) => {
+    if (err) {
+      console.error('Save pn_material error:', err);
+      return res.status(500).json({ error: err.message });
+    }
+    res.json({ success: true });
+  };
+  if (!material) return db.query('DELETE FROM pn_material WHERE pn_key = ?', [key], done);
+  db.query(
+    `INSERT INTO pn_material (pn_key, pn, material, updatedAt) VALUES (?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE pn = VALUES(pn), material = VALUES(material), updatedAt = VALUES(updatedAt)`,
+    [key, pn, material, Date.now()], done);
+});
+
 app.listen(port, () => {
   console.log(`🚀 Server running at http://localhost:${port}`);
 });

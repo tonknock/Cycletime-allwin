@@ -95,7 +95,24 @@
   .group-head:hover{background:var(--panel2);}
   .group-head .title{font-weight:600;font-size:15px;word-break:break-word;}
   .op-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;}
-  .op-chip{font-family:var(--mono);font-size:11px;color:var(--teal);background:var(--panel2);border-radius:2px;padding:2px 6px;}
+  .op-chip{font-family:var(--mono);font-size:11px;color:var(--teal);background:var(--panel2);border:1px solid transparent;border-radius:2px;padding:2px 6px;}
+  .op-chip.missing{color:var(--text-dim);background:transparent;border:1px dashed var(--line);}
+  .op-chip.extra{color:var(--text-dim);}
+  .mat-badge{display:inline-flex;align-items:center;gap:5px;vertical-align:2px;margin-left:8px;font-size:11px;font-weight:500;color:#c9d3de;background:#2a323c;border:1px solid #4a5563;border-radius:2px;padding:1px 6px 1px 2px;}
+  .mat-badge b{font-family:var(--mono);font-size:11px;color:#12151a;background:#c9d3de;border-radius:1px;padding:0 4px;}
+  .mat-set{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-dim);cursor:pointer;margin-left:8px;}
+  .op-set .mat-set input{width:auto;padding:0;margin:0;accent-color:#c9d3de;}
+  .group-count b.complete{color:var(--teal);}
+  .op-status{border-bottom:1px solid var(--line);padding:10px 4px 12px;margin-bottom:10px;font-size:13px;}
+  .op-status .line{color:var(--text-dim);}
+  .op-status .line b{color:var(--text);font-weight:600;}
+  .op-status .line .miss{color:var(--amber);}
+  .op-set{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;}
+  .op-set label{font-size:12px;color:var(--text-dim);}
+  .op-set input{width:72px;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:var(--radius);padding:6px 8px;font-size:15px;font-family:var(--mono);}
+  .op-set input:focus{outline:none;border-color:var(--amber);}
+  .op-set button{background:transparent;color:var(--teal);border:1px solid var(--teal);font-size:12px;padding:5px 12px;}
+  body.view-only .edit-only{display:none !important;}
   .group-count{font-size:11px;color:var(--text-dim);text-align:right;flex-shrink:0;line-height:1.5;}
   .group-count b{color:var(--text);font-size:14px;}
   .group-body{padding:0 10px 2px;display:none;}
@@ -245,6 +262,11 @@
   $('btn-toggle-log').innerHTML = iconLabel('eyeOff', 'ซ่อนประวัติ');
   let currentRows = [];
   let entries = [];
+  let pnOps = {};     // pn_key -> { pn, totalOps }
+  let pnMaterial = {}; // pn_key -> 'aluminium'
+  const MATERIAL_LABEL = { aluminium: 'Aluminium' };
+  const matBadge = pn => pnMaterial[pnKey(pn)] === 'aluminium'
+    ? '<span class="mat-badge" title="งาน Aluminium"><b>Al</b>Aluminium</span>' : '';
 
   // ---------- Tab switching ----------
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -454,6 +476,7 @@
         'P/N': e.pn || '',
         'OP': e.op || '',
         'Process': procName(e),
+        'วัสดุ': MATERIAL_LABEL[pnMaterial[pnKey(e.pn)]] || '',
         'ไซส์ท่อ': e.type === 'pipe' ? (e.process || '') : '',
         'ชื่อ Pattern': (e.pattern && e.pattern.name) || '',
         'ประเภท': isPipe ? 'ตัดท่อ' : 'Stamping',
@@ -480,7 +503,33 @@
       'สะสม': fmtSec(r.cumulative),
       'ตัดออก': r.excluded ? '✓' : ''
     })));
-    return { summary, laps };
+    // สถานะ OP ต่อ P/N (เทียบกับจำนวน OP ทั้งหมดที่ตั้งไว้)
+    const byPn = new Map();
+    sorted.forEach(e => {
+      const key = pnKey(e.pn);
+      if(!key) return;
+      if(!byPn.has(key)) byPn.set(key, { pn: (e.pn || '').trim(), ops: new Set() });
+      byPn.get(key).ops.add((e.op || '').trim());
+    });
+    const opStatus = [...byPn.entries()].map(([key, g]) => {
+      const ops = [...g.ops].sort((a, b) => opNum(a) - opNum(b) || a.localeCompare(b));
+      const cfg = pnOps[key];
+      const expected = cfg ? Array.from({ length: cfg.totalOps }, (_, i) => (i + 1) * 10) : [];
+      const doneNums = new Set(ops.map(opNum));
+      const done = expected.filter(n => doneNums.has(n));
+      const missing = expected.filter(n => !doneNums.has(n));
+      return {
+        'P/N': g.pn,
+        'วัสดุ': MATERIAL_LABEL[pnMaterial[key]] || '',
+        'OP ทั้งหมด': cfg ? cfg.totalOps : '',
+        'บันทึกแล้ว': cfg ? `${done.length}/${cfg.totalOps}` : ops.length,
+        'สถานะ': cfg ? (missing.length ? 'ยังไม่ครบ' : 'ครบ') : 'ยังไม่ได้ตั้งจำนวน OP',
+        'OP ที่มี': ops.join(', '),
+        'OP ที่ขาด': missing.map(n => 'OP' + n).join(', '),
+        'OP อื่น': cfg ? ops.filter(op => !expected.includes(opNum(op))).join(', ') : ''
+      };
+    });
+    return { summary, laps, opStatus };
   }
 
   function makeSheet(rows){
@@ -500,10 +549,11 @@
     btn.disabled = true; btn.textContent = 'กำลังสร้างไฟล์...';
     try{
       await loadXlsxLib();
-      const { summary, laps } = buildExportSheets(list);
+      const { summary, laps, opStatus } = buildExportSheets(list);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, makeSheet(summary), 'สรุป');
       XLSX.utils.book_append_sheet(wb, makeSheet(laps), 'เวลาแต่ละรอบ');
+      XLSX.utils.book_append_sheet(wb, makeSheet(opStatus), 'สถานะ OP');
       const d = new Date();
       const ymd = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       XLSX.writeFile(wb, `cycletime_${ymd}.xlsx`);
@@ -592,6 +642,9 @@
     renderPipePreview();
   });
 
+  // ต้องตรงกับ pnKey ใน server.js
+  const pnKey = pn => (pn || '').toLowerCase().replace(/\s+/g, '');
+
   function escapeHtml(s){
     if(!s) return '';
     return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -602,6 +655,16 @@
       const res = await fetch('/api/entries');
       if(!res.ok) throw new Error('bad status');
       entries = await res.json();
+      const r2 = await fetch('/api/pn-ops');
+      if(r2.ok){
+        pnOps = {};
+        (await r2.json()).forEach(o => { pnOps[o.key] = o; });
+      }
+      const r3 = await fetch('/api/pn-material');
+      if(r3.ok){
+        pnMaterial = {};
+        (await r3.json()).forEach(o => { pnMaterial[o.key] = o.material; });
+      }
     }catch(e){
       $('log-list').innerHTML = '<div class="empty">โหลดรายการไม่สำเร็จ ลองรีเฟรชหน้านี้</div>';
       return;
@@ -706,20 +769,83 @@
     list.innerHTML = sorted.map(g => {
       g.items.sort((a, b) => byOp(a.op, b.op) || Number(b.createdAt) - Number(a.createdAt));
       const ops = [...new Set(g.items.map(e => (e.op || '').trim()))].sort(byOp);
-      const chips = ops.map(op => `<span class="op-chip">${escapeHtml(op) || '-'}</span>`).join('');
       const isOpen = q || openGroups.has(g.key);
+
+      // เทียบกับจำนวน OP ทั้งหมดที่ตั้งไว้ (OP10, OP20, ... ตามจำนวน)
+      const cfg = g.pn ? pnOps[pnKey(g.pn)] : null;
+      let chips, countHtml, statusHtml;
+      if(cfg){
+        const expected = Array.from({ length: cfg.totalOps }, (_, i) => (i + 1) * 10);
+        const doneNums = new Set(ops.map(opNum));
+        const done = expected.filter(n => doneNums.has(n));
+        const missing = expected.filter(n => !doneNums.has(n));
+        const extras = ops.filter(op => !expected.includes(opNum(op)));
+        chips = expected.map(n => `<span class="op-chip${doneNums.has(n) ? '' : ' missing'}">OP${n}</span>`).join('')
+          + extras.map(op => `<span class="op-chip extra">${escapeHtml(op) || '-'}</span>`).join('');
+        countHtml = `<b class="${missing.length ? '' : 'complete'}">${done.length}/${cfg.totalOps}</b> OP`;
+        statusHtml = `<div class="line">บันทึกแล้ว <b>${done.length} จาก ${cfg.totalOps}</b> OP` +
+          (missing.length ? ` · ยังขาด <span class="miss">${missing.map(n => 'OP' + n).join(', ')}</span>` : ' · ครบแล้ว') +
+          (extras.length ? ` · OP อื่น: ${extras.map(op => escapeHtml(op) || '-').join(', ')}` : '') + `</div>`;
+      } else {
+        chips = ops.map(op => `<span class="op-chip">${escapeHtml(op) || '-'}</span>`).join('');
+        countHtml = `<b>${ops.length}</b> OP`;
+        statusHtml = `<div class="line">ยังไม่ได้ตั้งจำนวน OP ทั้งหมดของ P/N นี้</div>`;
+      }
+      const setHtml = g.pn ? `
+            <div class="op-set edit-only">
+              <label>จำนวน OP ทั้งหมด</label>
+              <input type="number" min="0" max="50" value="${cfg ? cfg.totalOps : ''}" placeholder="เช่น 4" data-opset-pn="${escapeHtml(g.pn)}">
+              <button type="button" data-opset-save>บันทึก</button>
+              <label class="mat-set"><input type="checkbox" data-mat-pn="${escapeHtml(g.pn)}"${pnMaterial[pnKey(g.pn)] === 'aluminium' ? ' checked' : ''}> งาน Aluminium</label>
+            </div>` : '';
       return `
         <div class="log-group">
           <div class="group-head" data-group="${escapeHtml(g.key)}">
             <div class="log-main">
-              <div class="title">${escapeHtml(g.pn) || '(ไม่ระบุ P/N)'}</div>
+              <div class="title">${escapeHtml(g.pn) || '(ไม่ระบุ P/N)'}${matBadge(g.pn)}</div>
               <div class="op-chips">${chips}</div>
             </div>
-            <div class="group-count"><b>${ops.length}</b> OP<br>${g.items.length} รายการ</div>
+            <div class="group-count">${countHtml}<br>${g.items.length} รายการ</div>
           </div>
-          <div class="group-body${isOpen ? ' open' : ''}">${g.items.map(renderItem).join('')}</div>
+          <div class="group-body${isOpen ? ' open' : ''}">
+            <div class="op-status">${statusHtml}${setHtml}</div>
+            ${g.items.map(renderItem).join('')}
+          </div>
         </div>`;
     }).join('');
+
+    list.querySelectorAll('[data-opset-save]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const inp = btn.parentElement.querySelector('input');
+        const totalOps = inp.value.trim() === '' ? 0 : parseInt(inp.value, 10);
+        if(!(totalOps >= 0 && totalOps <= 50)){ alert('ใส่จำนวน OP เป็นตัวเลข 0-50 (ใส่ 0 หรือเว้นว่างเพื่อล้างค่า)'); return; }
+        btn.disabled = true;
+        try{
+          const res = await fetch('/api/pn-ops', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pn: inp.getAttribute('data-opset-pn'), totalOps })
+          });
+          if(!res.ok) throw new Error('bad status');
+          await loadEntries();
+        }catch(e){ alert('บันทึกจำนวน OP ไม่สำเร็จ ลองใหม่อีกครั้ง'); btn.disabled = false; }
+      });
+    });
+
+    list.querySelectorAll('[data-mat-pn]').forEach(chk => {
+      chk.addEventListener('change', async () => {
+        chk.disabled = true;
+        try{
+          const res = await fetch('/api/pn-material', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pn: chk.getAttribute('data-mat-pn'), material: chk.checked ? 'aluminium' : '' })
+          });
+          if(!res.ok) throw new Error('bad status');
+          await loadEntries();
+        }catch(e){ alert('บันทึกวัสดุไม่สำเร็จ ลองใหม่อีกครั้ง'); chk.checked = !chk.checked; chk.disabled = false; }
+      });
+    });
 
     list.querySelectorAll('.group-head').forEach(h => {
       h.addEventListener('click', () => {
